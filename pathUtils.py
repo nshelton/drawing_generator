@@ -1,5 +1,7 @@
 import random
 import cv2
+import numpy as np
+from scipy.spatial import KDTree
 
 def plotPaths(paths, path_scale=1, upscale = 10):
     img = np.ones((297 * upscale, 420 * upscale, 3), np.uint8) * 255
@@ -7,7 +9,7 @@ def plotPaths(paths, path_scale=1, upscale = 10):
 
     for path in paths:
 
-        color = (128 * int(random.random() * 2), 128 * int(random.random() * 2), 128 * int(random.random() * 2))
+        color = (128 * int(random.random() + 128), 128 * int(random.random() + 128), 128 * int(random.random() + 128))
         # color = (255,255,255)
         for i in range(len(path) - 1):
             a = (
@@ -38,19 +40,66 @@ def plotPaths(paths, path_scale=1, upscale = 10):
 
     return img
 
+def add_path_with_merge(current_paths, new_path, add=True, threshold = 5) :
+    if len(current_paths) == 0:
+        return [new_path]
 
+    points = []
+    for path in current_paths:
+        points.append(path[0]) # beginning
+        points.append(path[-1]) # end
 
+    tree = KDTree(points)
 
-import numpy as np
-from scipy.spatial import KDTree
+    end_point = new_path[-1]
 
+    distance, idx = tree.query(end_point, k=2)
+    other_idx = idx[1] // 2
+    other_is_front = idx[1] %2 == 0
+
+    if distance[1] < threshold :
+
+        other_path = current_paths[other_idx]
+        if other_is_front: 
+            new_path = new_path + other_path
+            current_paths.pop(other_idx)
+            current_paths.append(new_path)
+            return current_paths
+        else:
+            new_path = new_path + other_path[::-1]
+            current_paths.pop(other_idx)
+            current_paths.append(new_path)
+            return current_paths
+
+    start_point = new_path[0]
+        
+    distance, idx = tree.query(start_point, k=2)
+    other_idx = idx[1] // 2
+    other_is_front = idx[1] %2 == 0
+    if distance[1] < threshold :
+
+        other_path = current_paths[other_idx]
+        if other_is_front: 
+            new_path = other_path[::-1] + new_path
+            current_paths.pop(other_idx)
+            current_paths.append(new_path)
+            return current_paths
+        else:
+            new_path = other_path + new_path
+            current_paths.pop(other_idx)
+            current_paths.append(new_path)
+            return current_paths
+
+    if add:
+        current_paths.append(new_path)
+
+    return current_paths
 
 def merge_one_path_kd(paths, threshold = 5):
     points = []
     for i in range(len(paths)):
         points.append(paths[i][0])
         points.append(paths[i][-1])
-
     tree = KDTree(points)
     
 
@@ -184,9 +233,9 @@ def smooth_all(paths, amount = 0.5) :
         path = np.array(path)
  
         if np.all(path[0] == path[-1]) : 
-            result.append(smooth_closed_path(path))
+            result.append(smooth_closed_path(path, amount = 0.5))
         else:
-            result.append(smooth_path(path))
+            result.append(smooth_path(path,amount = 0.5))
     return result
 
 def simplify_all(paths, threshold=0):
