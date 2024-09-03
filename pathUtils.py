@@ -100,8 +100,8 @@ def merge_one_path_kd(paths, threshold = 5):
     for i in range(len(paths)):
         points.append(paths[i][0])
         points.append(paths[i][-1])
+
     tree = KDTree(points)
-    
 
     for i in range(len(paths)):
         end_point = paths[i][-1]
